@@ -611,10 +611,20 @@ func getNewItems(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	sellerIDs := make([]int64, 0, len(items))
+	for _, item := range items {
+		sellerIDs = append(sellerIDs, item.SellerID)
+	}
+	sellers, _ := getUserSimpleByIDs(dbx, sellerIDs)
+	sellersMap := map[int64]UserSimple{}
+	for _, v := range sellers {
+		sellersMap[v.ID] = v
+	}
+
 	itemSimples := []ItemSimple{}
 	for _, item := range items {
-		seller, err := getUserSimpleByID(dbx, item.SellerID)
-		if err != nil {
+		seller, ok := sellersMap[item.SellerID]
+		if !ok {
 			outputErrorMsg(w, http.StatusNotFound, "seller not found")
 			return
 		}
@@ -736,11 +746,7 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 	for _, item := range items {
 		sellerIDs = append(sellerIDs, item.SellerID)
 	}
-	sellers, err := getUserSimpleByIDs(dbx, sellerIDs)
-	if err != nil {
-		outputErrorMsg(w, http.StatusNotFound, "seller not found")
-		return
-	}
+	sellers, _ := getUserSimpleByIDs(dbx, sellerIDs)
 	sellersMap := map[int64]UserSimple{}
 	for _, v := range sellers {
 		sellersMap[v.ID] = v
@@ -974,24 +980,18 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	sellerIDs := make([]int64, 0, len(items))
+	userIDs := make([]int64, 0, len(items)*2)
 	for _, item := range items {
-		sellerIDs = append(sellerIDs, item.SellerID)
+		userIDs = append(userIDs, item.SellerID, item.BuyerID)
 	}
-	sellers, err := getUserSimpleByIDs(dbx, sellerIDs)
-	if err != nil {
-		fmt.Println(err)
-		outputErrorMsg(w, http.StatusNotFound, "seller not found")
-		return
-	}
-	sellersMap := map[int64]UserSimple{}
+	usersMap := map[int64]UserSimple{}
 	for _, v := range sellers {
-		sellersMap[v.ID] = v
+		usersMap[v.ID] = v
 	}
 
 	itemDetails := []ItemDetail{}
 	for _, item := range items {
-		seller, ok := sellersMap[item.SellerID]
+		seller, ok := usersMap[item.SellerID]
 		if !ok {
 			outputErrorMsg(w, http.StatusNotFound, "seller not found")
 			tx.Rollback()
@@ -1024,8 +1024,8 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if item.BuyerID != 0 {
-			buyer, err := getUserSimpleByID(tx, item.BuyerID)
-			if err != nil {
+			buyer, ok := usersMap[item.BuyerID]
+			if !ok {
 				outputErrorMsg(w, http.StatusNotFound, "buyer not found")
 				tx.Rollback()
 				return
