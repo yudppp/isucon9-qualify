@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -436,6 +437,34 @@ func getUserSimpleByID(q sqlx.Queryer, userID int64) (userSimple UserSimple, err
 	return userSimple, err
 }
 
+func getUserSimpleByIDs(q sqlx.Queryer, userIDs []int64) ([]UserSimple, error) {
+	if len(userIDs) == 0 {
+		return nil, nil
+	}
+	users := []User{}
+	query := fmt.Sprintf("SELECT * FROM `users` WHERE `id` in (%s)", strings.TrimRight(strings.Repeat("?,", len(userIDs)), ","))
+	args := make([]interface{}, len(userIDs))
+	for i, v := range userIDs {
+		args[i] = v
+	}
+	err := sqlx.Select(q, &users, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	if len(users) == 0 {
+		return nil, nil
+	}
+	userSimples := []UserSimple{}
+	for _, user := range users {
+		userSimple := UserSimple{}
+		userSimple.ID = user.ID
+		userSimple.AccountName = user.AccountName
+		userSimple.NumSellItems = user.NumSellItems
+		userSimples = append(userSimples, userSimple)
+	}
+	return userSimples, err
+}
+
 func getCategoryByID(q sqlx.Queryer, categoryID int) (category Category, err error) {
 	category, ok := categorisMap[categoryID]
 	if !ok {
@@ -636,14 +665,6 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 		outputErrorMsg(w, http.StatusNotFound, "category not found")
 		return
 	}
-
-	// var categoryIDs []int
-	// err = dbx.Select(&categoryIDs, "SELECT id FROM `categories` WHERE parent_id=?", rootCategory.ID)
-	// if err != nil {
-	// 	log.Print(err)
-	// 	outputErrorMsg(w, http.StatusInternalServerError, "db error")
-	// 	return
-	// }
 	categoryIDs, _ := categorisParentMap[rootCategoryID]
 
 	query := r.URL.Query()
@@ -711,13 +732,28 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sellerIDs := make([]int64, 0, len(items))
+	for _, item := range items {
+		sellerIDs = append(sellerIDs, item.SellerID)
+	}
+	sellers, err := getUserSimpleByIDs(dbx, sellerIDs)
+	if err != nil {
+		outputErrorMsg(w, http.StatusNotFound, "seller not found")
+		return
+	}
+	sellersMap := map[int64]UserSimple{}
+	for _, v := range sellers {
+		sellersMap[v.ID] = v
+	}
+
 	itemSimples := []ItemSimple{}
 	for _, item := range items {
-		seller, err := getUserSimpleByID(dbx, item.SellerID)
-		if err != nil {
+		seller, ok := sellersMap[item.SellerID]
+		if !ok {
 			outputErrorMsg(w, http.StatusNotFound, "seller not found")
 			return
 		}
+		// memo: onmempry
 		category, err := getCategoryByID(dbx, item.CategoryID)
 		if err != nil {
 			outputErrorMsg(w, http.StatusNotFound, "category not found")
@@ -938,10 +974,25 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	sellerIDs := make([]int64, 0, len(items))
+	for _, item := range items {
+		sellerIDs = append(sellerIDs, item.SellerID)
+	}
+	sellers, err := getUserSimpleByIDs(dbx, sellerIDs)
+	if err != nil {
+		fmt.Println(err)
+		outputErrorMsg(w, http.StatusNotFound, "seller not found")
+		return
+	}
+	sellersMap := map[int64]UserSimple{}
+	for _, v := range sellers {
+		sellersMap[v.ID] = v
+	}
+
 	itemDetails := []ItemDetail{}
 	for _, item := range items {
-		seller, err := getUserSimpleByID(tx, item.SellerID)
-		if err != nil {
+		seller, ok := sellersMap[item.SellerID]
+		if !ok {
 			outputErrorMsg(w, http.StatusNotFound, "seller not found")
 			tx.Rollback()
 			return
