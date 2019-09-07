@@ -66,34 +66,6 @@ var (
 	store     sessions.Store
 )
 
-func init() {
-	for _, v := range categoris {
-		categorisMap[v.ID] = v
-	}
-	for i, v := range categoris {
-		if v.ParentID == 0 {
-			continue
-		}
-		parent, ok := categorisMap[v.ParentID]
-		if ok {
-			v.ParentCategoryName = parent.CategoryName
-			categoris[i] = v
-			categorisMap[v.ID] = v
-		}
-	}
-	for _, v := range categoris {
-		list, ok := categorisParentMap[v.ParentID]
-		if ok {
-			list = append(list, v.ID)
-		} else {
-			list = []int{
-				v.ID,
-			}
-		}
-		categorisParentMap[v.ParentID] = list
-	}
-}
-
 type Config struct {
 	Name string `json:"name" db:"name"`
 	Val  string `json:"val" db:"val"`
@@ -306,6 +278,32 @@ func init() {
 	templates = template.Must(template.ParseFiles(
 		"../public/index.html",
 	))
+
+	for _, v := range categoris {
+		categorisMap[v.ID] = v
+	}
+	for i, v := range categoris {
+		if v.ParentID == 0 {
+			continue
+		}
+		parent, ok := categorisMap[v.ParentID]
+		if ok {
+			v.ParentCategoryName = parent.CategoryName
+			categoris[i] = v
+			categorisMap[v.ID] = v
+		}
+	}
+	for _, v := range categoris {
+		list, ok := categorisParentMap[v.ParentID]
+		if ok {
+			list = append(list, v.ID)
+		} else {
+			list = []int{
+				v.ID,
+			}
+		}
+		categorisParentMap[v.ParentID] = list
+	}
 }
 
 func main() {
