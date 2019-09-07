@@ -984,8 +984,9 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	for _, item := range items {
 		userIDs = append(userIDs, item.SellerID, item.BuyerID)
 	}
+	users, _ := getUserSimpleByIDs(dbx, userIDs)
 	usersMap := map[int64]UserSimple{}
-	for _, v := range sellers {
+	for _, v := range users {
 		usersMap[v.ID] = v
 	}
 
