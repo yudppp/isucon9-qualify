@@ -615,12 +615,7 @@ func getNewItems(w http.ResponseWriter, r *http.Request) {
 	for _, item := range items {
 		sellerIDs = append(sellerIDs, item.SellerID)
 	}
-	sellers, err := getUserSimpleByIDs(dbx, sellerIDs)
-	if err != nil {
-		fmt.Println(err)
-		outputErrorMsg(w, http.StatusNotFound, "seller not found")
-		return
-	}
+	sellers, _ := getUserSimpleByIDs(dbx, sellerIDs)
 	sellersMap := map[int64]UserSimple{}
 	for _, v := range sellers {
 		sellersMap[v.ID] = v
@@ -751,11 +746,7 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 	for _, item := range items {
 		sellerIDs = append(sellerIDs, item.SellerID)
 	}
-	sellers, err := getUserSimpleByIDs(dbx, sellerIDs)
-	if err != nil {
-		outputErrorMsg(w, http.StatusNotFound, "seller not found")
-		return
-	}
+	sellers, _ := getUserSimpleByIDs(dbx, sellerIDs)
 	sellersMap := map[int64]UserSimple{}
 	for _, v := range sellers {
 		sellersMap[v.ID] = v
@@ -993,12 +984,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	for _, item := range items {
 		sellerIDs = append(sellerIDs, item.SellerID)
 	}
-	sellers, err := getUserSimpleByIDs(dbx, sellerIDs)
-	if err != nil {
-		fmt.Println(err)
-		outputErrorMsg(w, http.StatusNotFound, "seller not found")
-		return
-	}
+	sellers, _ := getUserSimpleByIDs(dbx, sellerIDs)
 	sellersMap := map[int64]UserSimple{}
 	for _, v := range sellers {
 		sellersMap[v.ID] = v
@@ -1008,12 +994,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	for _, item := range items {
 		buyerIDs = append(buyerIDs, item.SellerID)
 	}
-	buyers, err := getUserSimpleByIDs(dbx, buyerIDs)
-	if err != nil {
-		fmt.Println(err)
-		outputErrorMsg(w, http.StatusNotFound, "buyer not found")
-		return
-	}
+	buyers, _ := getUserSimpleByIDs(dbx, buyerIDs)
 	buyersMap := map[int64]UserSimple{}
 	for _, v := range buyers {
 		buyersMap[v.ID] = v
