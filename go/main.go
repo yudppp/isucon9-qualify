@@ -611,10 +611,25 @@ func getNewItems(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	sellerIDs := make([]int64, 0, len(items))
+	for _, item := range items {
+		sellerIDs = append(sellerIDs, item.SellerID)
+	}
+	sellers, err := getUserSimpleByIDs(dbx, sellerIDs)
+	if err != nil {
+		fmt.Println(err)
+		outputErrorMsg(w, http.StatusNotFound, "seller not found")
+		return
+	}
+	sellersMap := map[int64]UserSimple{}
+	for _, v := range sellers {
+		sellersMap[v.ID] = v
+	}
+
 	itemSimples := []ItemSimple{}
 	for _, item := range items {
-		seller, err := getUserSimpleByID(dbx, item.SellerID)
-		if err != nil {
+		seller, ok := sellersMap[item.SellerID]
+		if !ok {
 			outputErrorMsg(w, http.StatusNotFound, "seller not found")
 			return
 		}
@@ -989,6 +1004,21 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		sellersMap[v.ID] = v
 	}
 
+	buyerIDs := make([]int64, 0, len(items))
+	for _, item := range items {
+		buyerIDs = append(buyerIDs, item.SellerID)
+	}
+	buyers, err := getUserSimpleByIDs(dbx, buyerIDs)
+	if err != nil {
+		fmt.Println(err)
+		outputErrorMsg(w, http.StatusNotFound, "buyer not found")
+		return
+	}
+	buyersMap := map[int64]UserSimple{}
+	for _, v := range buyers {
+		buyersMap[v.ID] = v
+	}
+
 	itemDetails := []ItemDetail{}
 	for _, item := range items {
 		seller, ok := sellersMap[item.SellerID]
@@ -1024,8 +1054,8 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if item.BuyerID != 0 {
-			buyer, err := getUserSimpleByID(tx, item.BuyerID)
-			if err != nil {
+			buyer, ok := buyersMap[item.BuyerID]
+			if !ok {
 				outputErrorMsg(w, http.StatusNotFound, "buyer not found")
 				tx.Rollback()
 				return
