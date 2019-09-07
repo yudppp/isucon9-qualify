@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"sync"
 )
 
 const (
@@ -146,6 +147,54 @@ func APIShipmentRequest(shipmentURL string, param *APIShipmentRequestReq) ([]byt
 	}
 
 	return ioutil.ReadAll(res.Body)
+}
+
+var shipDoneMap = map[string]bool{}
+var lock = sync.Mutex{}
+
+const done = "done"
+
+func APIShipmentStatus2(shipmentURL string, param *APIShipmentStatusReq) (string, error) {
+	if _, ok := shipDoneMap[param.ReserveID]; ok {
+		return done, nil
+	}
+	b, _ := json.Marshal(param)
+
+	req, err := http.NewRequest(http.MethodGet, shipmentURL+"/status", bytes.NewBuffer(b))
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", IsucariAPIToken)
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		b, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			return "", fmt.Errorf("failed to read res.Body and the status code of the response from shipment service was not 200: %v", err)
+		}
+		return "", fmt.Errorf("status code: %d; body: %s", res.StatusCode, b)
+	}
+
+	ssr := &APIShipmentStatusRes{}
+	err = json.NewDecoder(res.Body).Decode(&ssr)
+	if err != nil {
+		return "", err
+	}
+	if ssr.Status == done {
+		lock.Lock()
+		shipDoneMap[param.ReserveID] = true
+		lock.Unlock()
+	}
+
+	return ssr.Status, nil
 }
 
 func APIShipmentStatus(shipmentURL string, param *APIShipmentStatusReq) (*APIShipmentStatusRes, error) {
